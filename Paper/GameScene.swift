@@ -10,38 +10,41 @@ import GameplayKit
 
 class GameScene: SKScene, SKPhysicsContactDelegate {
     
-    // Game objects
-    private var paperAirplane: SKSpriteNode!
-    private var cameraNode: SKCameraNode!
-    private var worldNode: SKNode!
+    // MARK: - Game Objects
+    private var paperAirplane: SKSpriteNode! // The main player's paper airplane
+    private var cameraNode: SKCameraNode!    // Camera for following the airplane
+    private var worldNode: SKNode!         // Node to contain all game elements for easy scrolling
     
-    // Game state
-    private var score: Int = 0
-    private var scoreLabel: SKLabelNode!
-    private var gameOver = false
+    // MARK: - Game State
+    private var score: Int = 0            // Player's current score
+    private var scoreLabel: SKLabelNode!  // Displays the score on screen
+    private var gameOver = false         // Flag to indicate if the game has ended
     
-    // Physics categories
+    // MARK: - Physics Categories
+    // Bit masks for physics collision detection
     let airplaneCategory: UInt32 = 0x1 << 0
     let obstacleCategory: UInt32 = 0x1 << 1
     let collectibleCategory: UInt32 = 0x1 << 2
     let groundCategory: UInt32 = 0x1 << 3
     
-    // Controls
-    private var touchLocation: CGPoint?
-    private var airplaneVelocity = CGVector.zero
-    private let maxVelocity: CGFloat = 400
-    private let acceleration: CGFloat = 800
-    private let drag: CGFloat = 0.98
+    // MARK: - Controls
+    private var touchLocation: CGPoint?   // Stores the current touch location for airplane control
+    private var airplaneVelocity = CGVector.zero // Current velocity of the airplane
+    private let maxVelocity: CGFloat = 400     // Maximum speed of the airplane
+    private let acceleration: CGFloat = 800    // Acceleration applied towards touch
+    private let drag: CGFloat = 0.98           // Drag coefficient to slow down the airplane
     
-    // Wind effects
-    private var windForce = CGVector.zero
-    private var windTimer: TimeInterval = 0
+    // MARK: - Wind Effects
+    private var windForce = CGVector.zero     // Current wind force affecting the airplane
+    private var windTimer: TimeInterval = 0  // Timer to control wind direction changes
     
-    // Parallax layers
+    // MARK: - Parallax Layers
+    // Nodes for different parallax scrolling speeds to create depth
     private var backgroundLayer: SKNode!
     private var midgroundLayer: SKNode!
     private var foregroundLayer: SKNode!
     
+    // Called when the scene is presented
     override func didMove(to view: SKView) {
         setupPhysics()
         setupWorld()
@@ -52,16 +55,20 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         startGame()
     }
     
+    // MARK: - Setup Methods
+    
+    // Configures the physics world
     private func setupPhysics() {
-        physicsWorld.gravity = CGVector(dx: 0, dy: -9.8)
-        physicsWorld.contactDelegate = self
+        physicsWorld.gravity = CGVector(dx: 0, dy: -9.8) // Sets a slight downward gravity
+        physicsWorld.contactDelegate = self             // Sets the scene as the contact delegate for physics collisions
     }
     
+    // Sets up the main world node and parallax layers
     private func setupWorld() {
-        worldNode = SKNode()
-        addChild(worldNode)
+        worldNode = SKNode()    // Initialize the world node
+        addChild(worldNode)     // Add it to the scene
         
-        // Create parallax layers
+        // Initialize parallax layers and add them to the world node
         backgroundLayer = SKNode()
         midgroundLayer = SKNode()
         foregroundLayer = SKNode()
@@ -71,22 +78,23 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         worldNode.addChild(foregroundLayer)
     }
     
+    // Creates and configures the paper airplane player
     private func setupPaperAirplane() {
         // Create paper airplane using shapes
         paperAirplane = SKSpriteNode(color: .white, size: CGSize(width: 60, height: 40))
-        paperAirplane.position = CGPoint(x: -frame.width/3, y: 0)
-        paperAirplane.zPosition = 10
+        paperAirplane.position = CGPoint(x: 0, y: 0) // Center of the scene
+        paperAirplane.zPosition = 10 // Drawing order
         
-        // Add paper airplane details
+        // Add paper airplane details (visual shape)
         let airplaneShape = SKShapeNode()
         let path = CGMutablePath()
         
-        // Create a paper airplane shape
-        path.move(to: CGPoint(x: -30, y: 0))  // Nose
-        path.addLine(to: CGPoint(x: 0, y: 15))   // Top wing
-        path.addLine(to: CGPoint(x: 20, y: 0))   // Top wing tip
-        path.addLine(to: CGPoint(x: 0, y: -15))  // Bottom wing
-        path.addLine(to: CGPoint(x: -30, y: 0))  // Back to nose
+        // Define the shape of the paper airplane
+        path.move(to: CGPoint(x: -30, y: 0))
+        path.addLine(to: CGPoint(x: 0, y: 15))
+        path.addLine(to: CGPoint(x: 20, y: 0))
+        path.addLine(to: CGPoint(x: 0, y: -15))
+        path.addLine(to: CGPoint(x: -30, y: 0))
         
         airplaneShape.path = path
         airplaneShape.fillColor = .white
@@ -94,7 +102,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         airplaneShape.lineWidth = 2
         paperAirplane.addChild(airplaneShape)
         
-        // Add a small tail
+        // Add a small tail to the airplane
         let tail = SKShapeNode()
         let tailPath = CGMutablePath()
         tailPath.move(to: CGPoint(x: -25, y: 0))
@@ -109,51 +117,50 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         tail.lineWidth = 1
         paperAirplane.addChild(tail)
         
-        // Setup physics body
+        // Setup physics body for collision detection and movement
         let airplaneBody = SKPhysicsBody(rectangleOf: paperAirplane.size)
-        airplaneBody.categoryBitMask = airplaneCategory
-        airplaneBody.contactTestBitMask = obstacleCategory | collectibleCategory
-        airplaneBody.collisionBitMask = groundCategory
-        airplaneBody.affectedByGravity = false
-        airplaneBody.allowsRotation = true
-        airplaneBody.linearDamping = 0.5
-        airplaneBody.angularDamping = 0.8
+        airplaneBody.categoryBitMask = airplaneCategory // Assign category for collision filtering
+        airplaneBody.contactTestBitMask = obstacleCategory | collectibleCategory // Which categories it will test contact with
+        airplaneBody.collisionBitMask = groundCategory // Which categories it will collide with
+        airplaneBody.affectedByGravity = false // Disable gravity effect
+        airplaneBody.allowsRotation = true    // Allow rotation
+        airplaneBody.linearDamping = 0.5      // Reduces linear velocity over time
+        airplaneBody.angularDamping = 0.8     // Reduces angular velocity over time
         paperAirplane.physicsBody = airplaneBody
         
-        worldNode.addChild(paperAirplane)
+        worldNode.addChild(paperAirplane) // Add airplane to the world
     }
     
+    // Sets up the camera node to follow the airplane
     private func setupCamera() {
-        cameraNode = SKCameraNode()
-        camera = cameraNode
-        addChild(cameraNode)
-        
-        // Position camera behind and slightly above the airplane
-        let cameraOffset = CGPoint(x: -100, y: 50)
-        cameraNode.position = CGPoint(x: paperAirplane.position.x + cameraOffset.x,
-                                    y: paperAirplane.position.y + cameraOffset.y)
+        cameraNode = SKCameraNode() // Initialize camera
+        camera = cameraNode         // Assign as the scene's camera
+        addChild(cameraNode)        // Add to the scene
+        cameraNode.position = paperAirplane.position // Center camera on airplane
     }
     
+    // Sets up the user interface elements like score and speed labels
     private func setupUI() {
+        // Score label setup
         scoreLabel = SKLabelNode(fontNamed: "Arial-Bold")
         scoreLabel.text = "Score: 0"
         scoreLabel.fontSize = 24
         scoreLabel.fontColor = .white
         scoreLabel.position = CGPoint(x: -frame.width/2 + 100, y: frame.height/2 - 50)
-        scoreLabel.zPosition = 100
-        cameraNode.addChild(scoreLabel)
+        scoreLabel.zPosition = 100 // Ensure it's on top
+        cameraNode.addChild(scoreLabel) // Add to camera so it moves with the view
         
-        // Add speed indicator
+        // Speed indicator label setup
         let speedLabel = SKLabelNode(fontNamed: "Arial")
         speedLabel.text = "Speed: 0"
         speedLabel.fontSize = 18
         speedLabel.fontColor = .white
         speedLabel.position = CGPoint(x: -frame.width/2 + 100, y: frame.height/2 - 80)
         speedLabel.zPosition = 100
-        speedLabel.name = "speedLabel"
+        speedLabel.name = "speedLabel" // Name for easy retrieval
         cameraNode.addChild(speedLabel)
         
-        // Add instructions
+        // Instructions label setup
         let instructionsLabel = SKLabelNode(fontNamed: "Arial")
         instructionsLabel.text = "Tap and drag to control the paper airplane"
         instructionsLabel.fontSize = 18
@@ -163,11 +170,12 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         cameraNode.addChild(instructionsLabel)
     }
     
+    // Sets up the background with a sky gradient and clouds
     private func setupBackground() {
         // Create sky gradient in background layer
         let skyNode = SKSpriteNode(color: .clear, size: CGSize(width: frame.width * 3, height: frame.height * 2))
         skyNode.position = CGPoint(x: 0, y: 0)
-        skyNode.zPosition = -100
+        skyNode.zPosition = -100 // Behind other elements
         
         // Create gradient effect with multiple colored rectangles
         let colors: [UIColor] = [
@@ -189,21 +197,23 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         addClouds()
     }
     
+    // Adds multiple cloud nodes to the midground layer
     private func addClouds() {
-        for _ in 0..<15 {
-            let cloud = createCloud()
-            let randomX = CGFloat.random(in: -frame.width...frame.width * 2)
-            let randomY = CGFloat.random(in: -frame.height/2...frame.height)
+        for _ in 0..<15 { // Create 15 clouds
+            let cloud = createCloud() // Generate a single cloud
+            let randomX = CGFloat.random(in: -frame.width...frame.width * 2) // Random X position
+            let randomY = CGFloat.random(in: -frame.height/2...frame.height) // Random Y position
             cloud.position = CGPoint(x: randomX, y: randomY)
-            cloud.zPosition = -50
-            midgroundLayer.addChild(cloud)
+            cloud.zPosition = -50 // Z-position for midground
+            midgroundLayer.addChild(cloud) // Add to midground
         }
     }
     
+    // Creates a single cloud sprite node
     private func createCloud() -> SKSpriteNode {
         let cloud = SKSpriteNode(color: .white, size: CGSize(width: CGFloat.random(in: 80...150), height: CGFloat.random(in: 40...80)))
-        cloud.alpha = 0.8
-        cloud.name = "cloud"
+        cloud.alpha = 0.8 // Semi-transparent
+        cloud.name = "cloud" // Tag for identification
         
         // Add some cloud-like shape variations
         let cloudShape = SKShapeNode(ellipseOf: cloud.size)
@@ -214,53 +224,54 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         return cloud
     }
     
+    // Starts spawning obstacles and collectibles
     private func startGame() {
-        // Start spawning obstacles and collectibles
+        // Loop to repeatedly spawn obstacles
         run(SKAction.repeatForever(
             SKAction.sequence([
                 SKAction.run { [weak self] in
-                    self?.spawnObstacle()
+                    self?.spawnObstacle() // Call spawnObstacle method
                 },
-                SKAction.wait(forDuration: 2.0)
+                SKAction.wait(forDuration: 2.0) // Wait 2 seconds before next spawn
             ])
         ))
         
+        // Loop to repeatedly spawn collectibles
         run(SKAction.repeatForever(
             SKAction.sequence([
                 SKAction.run { [weak self] in
-                    self?.spawnCollectible()
+                    self?.spawnCollectible() // Call spawnCollectible method
                 },
-                SKAction.wait(forDuration: 1.5)
+                SKAction.wait(forDuration: 1.5) // Wait 1.5 seconds before next spawn
             ])
         ))
     }
     
+    // MARK: - Game Element Spawning
+    
+    // Spawns an obstacle at a random vertical position off-screen to the right
     private func spawnObstacle() {
-        let obstacle = createObstacle()
-        obstacle.position = CGPoint(x: paperAirplane.position.x + frame.width + 100,
-                                  y: CGFloat.random(in: -frame.height/2 + 100...frame.height/2 - 100))
-        obstacle.zPosition = 5
+        let obstacle = createObstacle() // Create a random obstacle type
+        obstacle.position = CGPoint(x: paperAirplane.position.x + frame.width + 100, // Position off-screen
+                                  y: CGFloat.random(in: -frame.height/2 + 100...frame.height/2 - 100)) // Random Y
+        obstacle.zPosition = 5 // Drawing order
         
-        // Add physics body
+        // Add physics body for collision
         let obstacleBody = SKPhysicsBody(rectangleOf: obstacle.size)
         obstacleBody.categoryBitMask = obstacleCategory
         obstacleBody.contactTestBitMask = airplaneCategory
-        obstacleBody.collisionBitMask = 0
-        obstacleBody.affectedByGravity = false
-        obstacleBody.isDynamic = false
+        obstacleBody.collisionBitMask = 0       // No collision response
+        obstacleBody.affectedByGravity = false  // Not affected by gravity
+        obstacleBody.isDynamic = false          // Does not move by physics engine
         obstacle.physicsBody = obstacleBody
         
-        worldNode.addChild(obstacle)
-        
-        // Move obstacle towards airplane
-        let moveAction = SKAction.moveBy(x: -frame.width - 200, y: 0, duration: 4.0)
-        let removeAction = SKAction.removeFromParent()
-        obstacle.run(SKAction.sequence([moveAction, removeAction]))
+        worldNode.addChild(obstacle) // Add to the world
     }
     
+    // Returns a randomly selected obstacle type (cloud, bird, or building)
     private func createObstacle() -> SKSpriteNode {
-        let obstacleTypes = ["cloud", "bird", "building"]
-        let randomType = obstacleTypes.randomElement() ?? "cloud"
+        let obstacleTypes = ["cloud", "bird", "building"] // Available obstacle types
+        let randomType = obstacleTypes.randomElement() ?? "cloud" // Select a random one
         
         switch randomType {
         case "cloud":
@@ -270,13 +281,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         case "building":
             return createBuildingObstacle()
         default:
-            return createCloudObstacle()
+            return createCloudObstacle() // Fallback
         }
     }
     
+    // Creates a cloud-shaped obstacle
     private func createCloudObstacle() -> SKSpriteNode {
         let cloud = SKSpriteNode(color: .darkGray, size: CGSize(width: 80, height: 60))
-        cloud.name = "obstacle"
+        cloud.name = "obstacle" // Tag as obstacle
         
         // Add cloud-like shape
         let cloudShape = SKShapeNode(ellipseOf: cloud.size)
@@ -285,7 +297,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         cloudShape.lineWidth = 2
         cloud.addChild(cloudShape)
         
-        // Add some smaller cloud parts
+        // Add some smaller cloud parts for detail
         for _ in 0..<3 {
             let smallCloud = SKShapeNode(ellipseOf: CGSize(width: 30, height: 20))
             smallCloud.fillColor = .darkGray
@@ -297,19 +309,20 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         return cloud
     }
     
+    // Creates a bird-shaped obstacle with flapping animation
     private func createBirdObstacle() -> SKSpriteNode {
         let bird = SKSpriteNode(color: .black, size: CGSize(width: 40, height: 30))
         bird.name = "obstacle"
         
-        // Create bird shape
+        // Create bird shape using a custom path
         let birdShape = SKShapeNode()
         let path = CGMutablePath()
-        path.move(to: CGPoint(x: -20, y: 0))  // Head
-        path.addLine(to: CGPoint(x: -10, y: 10))  // Wing up
-        path.addLine(to: CGPoint(x: 10, y: 5))   // Wing tip
-        path.addLine(to: CGPoint(x: 15, y: 0))   // Tail
-        path.addLine(to: CGPoint(x: 10, y: -5))  // Wing tip down
-        path.addLine(to: CGPoint(x: -10, y: -10)) // Wing down
+        path.move(to: CGPoint(x: -20, y: 0))
+        path.addLine(to: CGPoint(x: -10, y: 10))
+        path.addLine(to: CGPoint(x: 10, y: 5))
+        path.addLine(to: CGPoint(x: 15, y: 0))
+        path.addLine(to: CGPoint(x: 10, y: -5))
+        path.addLine(to: CGPoint(x: -10, y: -10))
         path.closeSubpath()
         
         birdShape.path = path
@@ -318,7 +331,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         birdShape.lineWidth = 1
         bird.addChild(birdShape)
         
-        // Add wing flapping animation
+        // Add wing flapping animation (scaling Y)
         let flapAction = SKAction.sequence([
             SKAction.scaleY(to: 0.8, duration: 0.2),
             SKAction.scaleY(to: 1.2, duration: 0.2)
@@ -328,18 +341,19 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         return bird
     }
     
+    // Creates a building-shaped obstacle with windows
     private func createBuildingObstacle() -> SKSpriteNode {
         let building = SKSpriteNode(color: .brown, size: CGSize(width: 60, height: 100))
         building.name = "obstacle"
         
-        // Add building details
+        // Add building details (base shape)
         let buildingShape = SKShapeNode(rectOf: building.size)
         buildingShape.fillColor = .brown
         buildingShape.strokeColor = .darkGray
         buildingShape.lineWidth = 2
         building.addChild(buildingShape)
         
-        // Add windows
+        // Add windows to the building
         for row in 0..<4 {
             for col in 0..<2 {
                 let window = SKShapeNode(rectOf: CGSize(width: 8, height: 8))
@@ -354,13 +368,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         return building
     }
     
+    // Spawns a star collectible off-screen to the right
     private func spawnCollectible() {
-        let collectible = createStarCollectible()
-        collectible.position = CGPoint(x: paperAirplane.position.x + frame.width + 100,
-                                     y: CGFloat.random(in: -frame.height/2 + 100...frame.height/2 - 100))
-        collectible.zPosition = 5
+        let collectible = createStarCollectible() // Create a star collectible
+        collectible.position = CGPoint(x: paperAirplane.position.x + frame.width + 100, // Position off-screen
+                                     y: CGFloat.random(in: -frame.height/2 + 100...frame.height/2 - 100)) // Random Y
+        collectible.zPosition = 5 // Drawing order
         
-        // Add physics body
+        // Add physics body for collection detection
         let collectibleBody = SKPhysicsBody(circleOfRadius: 15)
         collectibleBody.categoryBitMask = collectibleCategory
         collectibleBody.contactTestBitMask = airplaneCategory
@@ -369,19 +384,15 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         collectibleBody.isDynamic = false
         collectible.physicsBody = collectibleBody
         
-        worldNode.addChild(collectible)
-        
-        // Move collectible towards airplane
-        let moveAction = SKAction.moveBy(x: -frame.width - 200, y: 0, duration: 4.0)
-        let removeAction = SKAction.removeFromParent()
-        collectible.run(SKAction.sequence([moveAction, removeAction]))
+        worldNode.addChild(collectible) // Add to the world
     }
     
+    // Creates a star-shaped collectible with glow and animation
     private func createStarCollectible() -> SKSpriteNode {
         let star = SKSpriteNode(color: .clear, size: CGSize(width: 30, height: 30))
-        star.name = "collectible"
+        star.name = "collectible" // Tag as collectible
         
-        // Create star shape
+        // Create star shape using a custom path
         let starShape = SKShapeNode()
         let path = CGMutablePath()
         
@@ -389,6 +400,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let innerRadius: CGFloat = 7
         let points = 5
         
+        // Generate star points
         for i in 0..<points * 2 {
             let angle = CGFloat(i) * .pi / CGFloat(points)
             let radius = i % 2 == 0 ? outerRadius : innerRadius
@@ -418,7 +430,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         glow.alpha = 0.5
         star.addChild(glow)
         
-        // Add rotation and scaling animation
+        // Add rotation and scaling animation to the star
         let rotateAction = SKAction.rotate(byAngle: .pi * 2, duration: 2.0)
         let scaleAction = SKAction.sequence([
             SKAction.scale(to: 1.2, duration: 0.5),
@@ -431,9 +443,12 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         return star
     }
     
+    // MARK: - Touch Handling
+    
+    // Called when a touch begins
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         if gameOver {
-            // Restart game
+            // Restart game if game is over
             let newScene = GameScene(size: self.size)
             newScene.scaleMode = self.scaleMode
             view?.presentScene(newScene, transition: SKTransition.fade(withDuration: 0.5))
@@ -441,96 +456,119 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         
         guard let touch = touches.first else { return }
-        touchLocation = touch.location(in: self)
+        touchLocation = touch.location(in: self) // Store touch location
     }
     
+    // Called when a touch moves
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
-        touchLocation = touch.location(in: self)
+        touchLocation = touch.location(in: self) // Update touch location
     }
     
+    // Called when a touch ends
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        touchLocation = nil
+        touchLocation = nil // Clear touch location
     }
     
+    // MARK: - Game Loop
+    
+    // Called once per frame to update game state
     override func update(_ currentTime: TimeInterval) {
-        if gameOver { return }
+        if gameOver { return } // Stop updates if game is over
         
         updateWind(currentTime)
         updateAirplaneMovement()
+        moveWorld()
         updateCamera()
-        updateParallaxLayers()
+        updateParallaxLayers() // Note: This is now handled in moveWorld()
         updateScore()
         cleanupOffscreenObjects()
     }
     
+    // Updates the wind force applied to the airplane
     private func updateWind(_ currentTime: TimeInterval) {
-        windTimer += 1.0/60.0
+        windTimer += 1.0/60.0 // Increment timer
         
         // Change wind direction every 3 seconds
         if windTimer > 3.0 {
             windTimer = 0
             windForce = CGVector(
-                dx: CGFloat.random(in: -50...50),
-                dy: CGFloat.random(in: -30...30)
+                dx: CGFloat.random(in: -50...50), // Random X wind
+                dy: CGFloat.random(in: -30...30)  // Random Y wind
             )
         }
         
-        // Apply wind to airplane
+        // Apply wind to airplane velocity
         airplaneVelocity.dx += windForce.dx * 0.01
         airplaneVelocity.dy += windForce.dy * 0.01
     }
     
-    private func updateParallaxLayers() {
-        // Parallax scrolling based on airplane movement
+    // Moves the game world elements (obstacles, collectibles, parallax layers)
+    private func moveWorld() {
+        let scrollSpeed = airplaneVelocity.dx * CGFloat(1.0/60.0) // Calculate scroll speed based on airplane X velocity
+
+        // Move obstacles and collectibles left based on scroll speed
+        worldNode.enumerateChildNodes(withName: "obstacle") { node, _ in
+            node.position.x -= scrollSpeed
+        }
+        worldNode.enumerateChildNodes(withName: "collectible") { node, _ in
+            node.position.x -= scrollSpeed
+        }
+
+        // Move parallax layers at different speeds for depth effect
         let parallaxSpeed: CGFloat = 0.1
-        
-        // Background moves slowest
-        backgroundLayer.position.x -= airplaneVelocity.dx * parallaxSpeed * 0.3
-        
-        // Midground moves at medium speed
-        midgroundLayer.position.x -= airplaneVelocity.dx * parallaxSpeed * 0.6
-        
-        // Foreground moves fastest
-        foregroundLayer.position.x -= airplaneVelocity.dx * parallaxSpeed
-        
-        // Reset layers when they go too far
-        if backgroundLayer.position.x < -frame.width {
-            backgroundLayer.position.x += frame.width
+        backgroundLayer.position.x -= scrollSpeed * parallaxSpeed * 0.3 // Slowest
+        midgroundLayer.position.x -= scrollSpeed * parallaxSpeed * 0.6  // Medium
+        foregroundLayer.position.x -= scrollSpeed * parallaxSpeed       // Fastest
+
+        // Reset parallax layers for infinite scrolling when they go off-screen
+        let bgLayerWidth = frame.width * 3
+        if backgroundLayer.position.x < -bgLayerWidth {
+            backgroundLayer.position.x += bgLayerWidth
         }
-        if midgroundLayer.position.x < -frame.width {
-            midgroundLayer.position.x += frame.width
+
+        // Midground and foreground content width is assumed to be similar for wrapping.
+        let otherLayersWidth = frame.width * 3
+        if midgroundLayer.position.x < -otherLayersWidth {
+            midgroundLayer.position.x += otherLayersWidth
         }
-        if foregroundLayer.position.x < -frame.width {
-            foregroundLayer.position.x += frame.width
+
+        if foregroundLayer.position.x < -otherLayersWidth {
+            foregroundLayer.position.x += otherLayersWidth
         }
     }
     
+    // This is handled in moveWorld() now, so it's empty.
+    private func updateParallaxLayers() {
+        // This is handled in moveWorld() now
+    }
+    
+    // Updates the airplane's movement based on touch input and physics
     private func updateAirplaneMovement() {
-        guard let touchLocation = touchLocation else { return }
+        guard let touchLocation = touchLocation else { return } // Only move if touch exists
         
         // Convert touch location to world coordinates
         let worldTouchLocation = convert(touchLocation, to: worldNode)
         
-        // Calculate direction from airplane to touch
+        // Calculate direction vector from airplane to touch point
         let direction = CGVector(dx: worldTouchLocation.x - paperAirplane.position.x,
                                dy: worldTouchLocation.y - paperAirplane.position.y)
         
-        // Normalize direction
+        // Normalize direction vector
         let length = sqrt(direction.dx * direction.dx + direction.dy * direction.dy)
         if length > 0 {
             let normalizedDirection = CGVector(dx: direction.dx / length, dy: direction.dy / length)
             
-            // Apply acceleration
+            // Apply acceleration in the direction of touch
             airplaneVelocity.dx += normalizedDirection.dx * acceleration * CGFloat(1.0/60.0)
             airplaneVelocity.dy += normalizedDirection.dy * acceleration * CGFloat(1.0/60.0)
         }
         
-        // Apply drag
+        // Apply drag to reduce velocity over time
         airplaneVelocity.dx *= drag
         airplaneVelocity.dy *= drag
         
-        // Limit maximum velocity
+        // Limit maximum velocity to prevent excessive speed
         let currentSpeed = sqrt(airplaneVelocity.dx * airplaneVelocity.dx + airplaneVelocity.dy * airplaneVelocity.dy)
         if currentSpeed > maxVelocity {
             let scale = maxVelocity / currentSpeed
@@ -538,59 +576,35 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             airplaneVelocity.dy *= scale
         }
         
-        // Apply velocity to position
-        paperAirplane.position.x += airplaneVelocity.dx * CGFloat(1.0/60.0)
+        // Apply vertical velocity to airplane's position (horizontal is handled by world scrolling)
         paperAirplane.position.y += airplaneVelocity.dy * CGFloat(1.0/60.0)
         
-        // Rotate airplane based on velocity
+        // Rotate airplane based on its current velocity for visual appeal
         let angle = atan2(airplaneVelocity.dy, airplaneVelocity.dx)
         paperAirplane.zRotation = angle
         
-        // Keep airplane within bounds
+        // Keep airplane within vertical bounds of the screen
         let margin: CGFloat = 50
-        paperAirplane.position.x = max(paperAirplane.position.x, -frame.width/2 + margin)
-        paperAirplane.position.x = min(paperAirplane.position.x, frame.width/2 - margin)
         paperAirplane.position.y = max(paperAirplane.position.y, -frame.height/2 + margin)
         paperAirplane.position.y = min(paperAirplane.position.y, frame.height/2 - margin)
     }
     
+    // Updates the camera's position to follow the airplane (centered, no smoothing)
     private func updateCamera() {
-        // Calculate target camera position based on airplane position and velocity
-        let currentSpeed = sqrt(airplaneVelocity.dx * airplaneVelocity.dx + airplaneVelocity.dy * airplaneVelocity.dy)
-        let speedFactor = min(currentSpeed / maxVelocity, 1.0)
-        
-        // Dynamic camera offset based on speed
-        let baseOffsetX: CGFloat = -100
-        let baseOffsetY: CGFloat = 50
-        let speedOffsetX = -speedFactor * 50  // Camera moves further back at high speed
-        let speedOffsetY = speedFactor * 30   // Camera moves higher at high speed
-        
-        let targetX = paperAirplane.position.x + baseOffsetX + speedOffsetX
-        let targetY = paperAirplane.position.y + baseOffsetY + speedOffsetY
-        
-        // Smooth camera follow with speed-dependent responsiveness
-        let cameraSpeed: CGFloat = 0.05 + speedFactor * 0.1
-        cameraNode.position.x += (targetX - cameraNode.position.x) * cameraSpeed
-        cameraNode.position.y += (targetY - cameraNode.position.y) * cameraSpeed
-        
-        // Add slight camera shake at high speeds
-        if currentSpeed > 300 {
-            let shakeAmount: CGFloat = 2.0
-            cameraNode.position.x += CGFloat.random(in: -shakeAmount...shakeAmount)
-            cameraNode.position.y += CGFloat.random(in: -shakeAmount...shakeAmount)
-        }
+        cameraNode.position = paperAirplane.position
     }
     
+    // Updates the score and speed display
     private func updateScore() {
-        score += 1
-        scoreLabel.text = "Score: \(score)"
+        score += 1 // Increment score
+        scoreLabel.text = "Score: \(score)" // Update score label
         
-        // Update speed indicator
+        // Update speed indicator label
         let currentSpeed = sqrt(airplaneVelocity.dx * airplaneVelocity.dx + airplaneVelocity.dy * airplaneVelocity.dy)
         if let speedLabel = cameraNode.childNode(withName: "speedLabel") as? SKLabelNode {
             speedLabel.text = "Speed: \(Int(currentSpeed))"
             
-            // Change color based on speed
+            // Change color based on speed for visual feedback
             if currentSpeed > 300 {
                 speedLabel.fontColor = .red
             } else if currentSpeed > 200 {
@@ -601,15 +615,20 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
     
+    // Removes off-screen obstacles and collectibles to optimize performance
     private func cleanupOffscreenObjects() {
+        let cleanupThreshold = paperAirplane.position.x - self.frame.width // Define a threshold for removal
+        
+        // Remove obstacles that are far enough off-screen to the left
         worldNode.enumerateChildNodes(withName: "obstacle") { node, _ in
-            if node.position.x < self.paperAirplane.position.x - self.frame.width {
+            if node.position.x < cleanupThreshold {
                 node.removeFromParent()
             }
         }
         
+        // Remove collectibles that are far enough off-screen to the left
         worldNode.enumerateChildNodes(withName: "collectible") { node, _ in
-            if node.position.x < self.paperAirplane.position.x - self.frame.width {
+            if node.position.x < cleanupThreshold {
                 node.removeFromParent()
             }
         }
@@ -617,21 +636,22 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     // MARK: - SKPhysicsContactDelegate
     
+    // Called when two physics bodies come into contact
     func didBegin(_ contact: SKPhysicsContact) {
         let collision = contact.bodyA.categoryBitMask | contact.bodyB.categoryBitMask
         
         if collision == airplaneCategory | obstacleCategory {
-            // Collision with obstacle
+            // Collision with obstacle: Game Over
             gameOver = true
             handleGameOver()
         } else if collision == airplaneCategory | collectibleCategory {
-            // Collectible collected
+            // Collision with collectible: Increase score and add effect
             if let collectible = contact.bodyA.categoryBitMask == collectibleCategory ? contact.bodyA.node : contact.bodyB.node {
-                collectible.removeFromParent()
-                score += 50
-                scoreLabel.text = "Score: \(score)"
+                collectible.removeFromParent() // Remove collectible
+                score += 50 // Increase score
+                scoreLabel.text = "Score: \(score)" // Update score display
                 
-                // Add collection effect
+                // Add collection sparkle effect
                 let sparkle = SKEmitterNode()
                 sparkle.particleColor = .yellow
                 sparkle.particleBirthRate = 100
@@ -646,7 +666,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 sparkle.position = collectible.position
                 worldNode.addChild(sparkle)
                 
-                // Remove sparkle after animation
+                // Remove sparkle after its animation
                 sparkle.run(SKAction.sequence([
                     SKAction.wait(forDuration: 0.5),
                     SKAction.removeFromParent()
@@ -655,7 +675,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
     
+    // MARK: - Game Over
+    
+    // Handles the game over state: displays game over message and final score
     private func handleGameOver() {
+        // Game Over label
         let gameOverLabel = SKLabelNode(fontNamed: "Arial-Bold")
         gameOverLabel.text = "Game Over!"
         gameOverLabel.fontSize = 48
@@ -664,6 +688,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         gameOverLabel.zPosition = 200
         cameraNode.addChild(gameOverLabel)
         
+        // Final Score label
         let finalScoreLabel = SKLabelNode(fontNamed: "Arial")
         finalScoreLabel.text = "Final Score: \(score)"
         finalScoreLabel.fontSize = 24
@@ -672,6 +697,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         finalScoreLabel.zPosition = 200
         cameraNode.addChild(finalScoreLabel)
         
+        // Restart instruction label
         let restartLabel = SKLabelNode(fontNamed: "Arial")
         restartLabel.text = "Tap to restart"
         restartLabel.fontSize = 20
