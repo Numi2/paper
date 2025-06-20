@@ -43,6 +43,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     private var backgroundLayer: SKNode!
     private var midgroundLayer: SKNode!
     private var foregroundLayer: SKNode!
+    // Infinite background tiling
+    private var backgroundTiles: [SKSpriteNode] = []
+    // Infinite midground and foreground tiling
+    private var midgroundTiles: [SKSpriteNode] = []
+    private var foregroundTiles: [SKSpriteNode] = []
+    // Grid size for infinite tiling
+    private let tileGridSize = 3
     
     // Called when the scene is presented
     override func didMove(to view: SKView) {
@@ -172,29 +179,69 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     // Sets up the background with a sky gradient and clouds
     private func setupBackground() {
-        // Create sky gradient in background layer
-        let skyNode = SKSpriteNode(color: .clear, size: CGSize(width: frame.width * 3, height: frame.height * 2))
-        skyNode.position = CGPoint(x: 0, y: 0)
-        skyNode.zPosition = -100 // Behind other elements
+        // Remove any existing tiles (for scene restart)
+        backgroundLayer.removeAllChildren()
+        backgroundTiles.removeAll()
+        midgroundLayer.removeAllChildren()
+        midgroundTiles.removeAll()
+        foregroundLayer.removeAllChildren()
+        foregroundTiles.removeAll()
         
-        // Create gradient effect with multiple colored rectangles
+        let tileWidth = frame.width
+        let tileHeight = frame.height
         let colors: [UIColor] = [
             UIColor(red: 0.4, green: 0.7, blue: 1.0, alpha: 1.0), // Light blue
             UIColor(red: 0.6, green: 0.8, blue: 1.0, alpha: 1.0), // Sky blue
             UIColor(red: 0.8, green: 0.9, blue: 1.0, alpha: 1.0)  // Very light blue
         ]
-        
-        for (index, color) in colors.enumerated() {
-            let skySection = SKSpriteNode(color: color, size: CGSize(width: frame.width * 3, height: frame.height * 2 / CGFloat(colors.count)))
-            skySection.position = CGPoint(x: 0, y: CGFloat(index) * frame.height * 2 / CGFloat(colors.count) - frame.height)
-            skySection.zPosition = -100 + CGFloat(index)
-            skyNode.addChild(skySection)
+        // Background (sky) tiles 3x3 grid
+        for i in 0..<tileGridSize {
+            for j in 0..<tileGridSize {
+                let skyNode = SKSpriteNode(color: .clear, size: CGSize(width: tileWidth, height: tileHeight))
+                skyNode.anchorPoint = CGPoint(x: 0, y: 0)
+                skyNode.position = CGPoint(x: CGFloat(i) * tileWidth - tileWidth, y: CGFloat(j) * tileHeight - tileHeight)
+                skyNode.zPosition = -100
+                for (index, color) in colors.enumerated() {
+                    let skySection = SKSpriteNode(color: color, size: CGSize(width: tileWidth, height: tileHeight / CGFloat(colors.count)))
+                    skySection.position = CGPoint(x: tileWidth/2, y: CGFloat(index) * tileHeight / CGFloat(colors.count) + tileHeight/(2*CGFloat(colors.count)))
+                    skySection.zPosition = -100 + CGFloat(index)
+                    skyNode.addChild(skySection)
+                }
+                backgroundLayer.addChild(skyNode)
+                backgroundTiles.append(skyNode)
+            }
         }
-        
-        backgroundLayer.addChild(skyNode)
-        
-        // Add clouds to midground layer
-        addClouds()
+        // Midground (cloud) tiles 3x3 grid
+        for i in 0..<tileGridSize {
+            for j in 0..<tileGridSize {
+                let midNode = SKSpriteNode(color: .clear, size: CGSize(width: tileWidth, height: tileHeight))
+                midNode.anchorPoint = CGPoint(x: 0, y: 0)
+                midNode.position = CGPoint(x: CGFloat(i) * tileWidth - tileWidth, y: CGFloat(j) * tileHeight - tileHeight)
+                midNode.zPosition = -50
+                // Add clouds to this tile
+                for _ in 0..<5 {
+                    let cloud = createCloud()
+                    let randomX = CGFloat.random(in: 0...tileWidth)
+                    let randomY = CGFloat.random(in: 0...tileHeight)
+                    cloud.position = CGPoint(x: randomX - tileWidth/2, y: randomY - tileHeight/2)
+                    cloud.zPosition = -50
+                    midNode.addChild(cloud)
+                }
+                midgroundLayer.addChild(midNode)
+                midgroundTiles.append(midNode)
+            }
+        }
+        // Foreground tiles 3x3 grid
+        for i in 0..<tileGridSize {
+            for j in 0..<tileGridSize {
+                let fgNode = SKSpriteNode(color: .clear, size: CGSize(width: tileWidth, height: tileHeight))
+                fgNode.anchorPoint = CGPoint(x: 0, y: 0)
+                fgNode.position = CGPoint(x: CGFloat(i) * tileWidth - tileWidth, y: CGFloat(j) * tileHeight - tileHeight)
+                fgNode.zPosition = 0
+                foregroundLayer.addChild(fgNode)
+                foregroundTiles.append(fgNode)
+            }
+        }
     }
     
     // Adds multiple cloud nodes to the midground layer
@@ -505,8 +552,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     // Moves the game world elements (obstacles, collectibles, parallax layers)
     private func moveWorld() {
-        let scrollSpeed = airplaneVelocity.dx * CGFloat(1.0/60.0) // Calculate scroll speed based on airplane X velocity
-
+        let scrollSpeed = airplaneVelocity.dx * CGFloat(1.0/60.0)
         // Move obstacles and collectibles left based on scroll speed
         worldNode.enumerateChildNodes(withName: "obstacle") { node, _ in
             node.position.x -= scrollSpeed
@@ -514,28 +560,39 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         worldNode.enumerateChildNodes(withName: "collectible") { node, _ in
             node.position.x -= scrollSpeed
         }
-
-        // Move parallax layers at different speeds for depth effect
+        // Infinite tiling for all layers in both X and Y
+        let tileWidth = frame.width
+        let tileHeight = frame.height
+        let camX = cameraNode.position.x
+        let camY = cameraNode.position.y
         let parallaxSpeed: CGFloat = 0.1
-        backgroundLayer.position.x -= scrollSpeed * parallaxSpeed * 0.3 // Slowest
-        midgroundLayer.position.x -= scrollSpeed * parallaxSpeed * 0.6  // Medium
-        foregroundLayer.position.x -= scrollSpeed * parallaxSpeed       // Fastest
-
-        // Reset parallax layers for infinite scrolling when they go off-screen
-        let bgLayerWidth = frame.width * 3
-        if backgroundLayer.position.x < -bgLayerWidth {
-            backgroundLayer.position.x += bgLayerWidth
+        // Helper closure for repositioning tiles
+        func repositionTiles(_ tiles: [SKSpriteNode], speed: CGFloat) {
+            for tile in tiles {
+                tile.position.x -= scrollSpeed * speed
+            }
+            for tile in tiles {
+                // Wrap in X
+                if tile.position.x + tileWidth < camX - tileWidth {
+                    let rightmost = tiles.max(by: { $0.position.x < $1.position.x && abs($0.position.y - tile.position.y) < 1 })
+                    tile.position.x = (rightmost?.position.x ?? 0) + tileWidth
+                } else if tile.position.x > camX + tileWidth {
+                    let leftmost = tiles.min(by: { $0.position.x < $1.position.x && abs($0.position.y - tile.position.y) < 1 })
+                    tile.position.x = (leftmost?.position.x ?? 0) - tileWidth
+                }
+                // Wrap in Y
+                if tile.position.y + tileHeight < camY - tileHeight {
+                    let topmost = tiles.max(by: { $0.position.y < $1.position.y && abs($0.position.x - tile.position.x) < 1 })
+                    tile.position.y = (topmost?.position.y ?? 0) + tileHeight
+                } else if tile.position.y > camY + tileHeight {
+                    let bottommost = tiles.min(by: { $0.position.y < $1.position.y && abs($0.position.x - tile.position.x) < 1 })
+                    tile.position.y = (bottommost?.position.y ?? 0) - tileHeight
+                }
+            }
         }
-
-        // Midground and foreground content width is assumed to be similar for wrapping.
-        let otherLayersWidth = frame.width * 3
-        if midgroundLayer.position.x < -otherLayersWidth {
-            midgroundLayer.position.x += otherLayersWidth
-        }
-
-        if foregroundLayer.position.x < -otherLayersWidth {
-            foregroundLayer.position.x += otherLayersWidth
-        }
+        repositionTiles(backgroundTiles, speed: parallaxSpeed * 0.3)
+        repositionTiles(midgroundTiles, speed: parallaxSpeed * 0.6)
+        repositionTiles(foregroundTiles, speed: parallaxSpeed)
     }
     
     // This is handled in moveWorld() now, so it's empty.
@@ -582,11 +639,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Rotate airplane based on its current velocity for visual appeal
         let angle = atan2(airplaneVelocity.dy, airplaneVelocity.dx)
         paperAirplane.zRotation = angle
-        
-        // Keep airplane within vertical bounds of the screen
-        let margin: CGFloat = 50
-        paperAirplane.position.y = max(paperAirplane.position.y, -frame.height/2 + margin)
-        paperAirplane.position.y = min(paperAirplane.position.y, frame.height/2 - margin)
     }
     
     // Updates the camera's position to follow the airplane (centered, no smoothing)
