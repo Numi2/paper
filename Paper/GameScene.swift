@@ -29,9 +29,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     // Controls
     private var touchLocation: CGPoint?
     private var airplaneVelocity = CGVector.zero
-    private let maxVelocity: CGFloat = 400
-    private let acceleration: CGFloat = 800
-    private let drag: CGFloat = 0.98
+    private let maxVelocity: CGFloat = 350  // Slightly reduced for better control
+    private let acceleration: CGFloat = 1000  // Increased for better responsiveness
+    private let drag: CGFloat = 0.95  // Increased drag for more realistic feel
     
     // Wind effects
     private var windForce = CGVector.zero
@@ -222,13 +222,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     private func startGame() {
-        // Start spawning obstacles and collectibles
+        // Start spawning obstacles and collectibles with better timing
         run(SKAction.repeatForever(
             SKAction.sequence([
                 SKAction.run { [weak self] in
                     self?.spawnObstacle()
                 },
-                SKAction.wait(forDuration: 2.0)
+                SKAction.wait(forDuration: 2.5)  // Slightly longer intervals
             ])
         ))
         
@@ -237,7 +237,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 SKAction.run { [weak self] in
                     self?.spawnCollectible()
                 },
-                SKAction.wait(forDuration: 1.5)
+                SKAction.wait(forDuration: 2.0)  // Better timing
             ])
         ))
     }
@@ -478,18 +478,18 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     private func updateWind(_ currentTime: TimeInterval) {
         windTimer += 1.0/60.0
         
-        // Change wind direction every 3 seconds
-        if windTimer > 3.0 {
+        // Change wind direction every 5 seconds (less frequent for more stable flight)
+        if windTimer > 5.0 {
             windTimer = 0
             windForce = CGVector(
-                dx: CGFloat.random(in: -50...50),
-                dy: CGFloat.random(in: -30...30)
+                dx: CGFloat.random(in: -30...30),  // Reduced wind strength
+                dy: CGFloat.random(in: -20...20)
             )
         }
         
-        // Apply wind to airplane
-        airplaneVelocity.dx += windForce.dx * 0.01
-        airplaneVelocity.dy += windForce.dy * 0.01
+        // Apply wind more subtly to airplane
+        airplaneVelocity.dx += windForce.dx * 0.005  // Reduced wind effect
+        airplaneVelocity.dy += windForce.dy * 0.005
     }
     
     private func updateParallaxLayers() {
@@ -576,22 +576,41 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         paperAirplane.position.y += airplaneVelocity.dy * frameTime
         
         // Rotate airplane based on velocity with smoother rotation
-        if currentSpeed > 10 {
+        if currentSpeed > 5 {  // Lower threshold for rotation
             let targetAngle = atan2(airplaneVelocity.dy, airplaneVelocity.dx)
             let currentAngle = paperAirplane.zRotation
             
-            // Smooth rotation interpolation
-            let angleDifference = targetAngle - currentAngle
-            let rotationSpeed: CGFloat = 0.1
+            // Smooth rotation interpolation with better handling of angle wrapping
+            var angleDifference = targetAngle - currentAngle
+            
+            // Handle angle wrapping for smoother rotation
+            if angleDifference > .pi {
+                angleDifference -= 2 * .pi
+            } else if angleDifference < -.pi {
+                angleDifference += 2 * .pi
+            }
+            
+            let rotationSpeed: CGFloat = 0.15  // Slightly faster rotation
             paperAirplane.zRotation += angleDifference * rotationSpeed
         }
         
-        // Keep airplane within bounds with better boundary handling
-        let margin: CGFloat = 50
-        paperAirplane.position.x = max(paperAirplane.position.x, -frame.width/2 + margin)
-        paperAirplane.position.x = min(paperAirplane.position.x, frame.width/2 - margin)
-        paperAirplane.position.y = max(paperAirplane.position.y, -frame.height/2 + margin)
-        paperAirplane.position.y = min(paperAirplane.position.y, frame.height/2 - margin)
+        // Keep airplane within bounds with softer boundary handling
+        let margin: CGFloat = 30  // Reduced margin for more freedom
+        if paperAirplane.position.x < -frame.width/2 + margin {
+            paperAirplane.position.x = -frame.width/2 + margin
+            airplaneVelocity.dx = max(airplaneVelocity.dx, 0)  // Bounce off walls
+        } else if paperAirplane.position.x > frame.width/2 - margin {
+            paperAirplane.position.x = frame.width/2 - margin
+            airplaneVelocity.dx = min(airplaneVelocity.dx, 0)
+        }
+        
+        if paperAirplane.position.y < -frame.height/2 + margin {
+            paperAirplane.position.y = -frame.height/2 + margin
+            airplaneVelocity.dy = max(airplaneVelocity.dy, 0)
+        } else if paperAirplane.position.y > frame.height/2 - margin {
+            paperAirplane.position.y = frame.height/2 - margin
+            airplaneVelocity.dy = min(airplaneVelocity.dy, 0)
+        }
     }
     
     private func updateCamera() {
@@ -602,20 +621,20 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Dynamic camera offset based on speed
         let baseOffsetX: CGFloat = -100
         let baseOffsetY: CGFloat = 50
-        let speedOffsetX = -speedFactor * 50  // Camera moves further back at high speed
-        let speedOffsetY = speedFactor * 30   // Camera moves higher at high speed
+        let speedOffsetX = -speedFactor * 30  // Reduced camera movement at high speed
+        let speedOffsetY = speedFactor * 20   // Reduced vertical movement
         
         let targetX = paperAirplane.position.x + baseOffsetX + speedOffsetX
         let targetY = paperAirplane.position.y + baseOffsetY + speedOffsetY
         
         // Smooth camera follow with speed-dependent responsiveness
-        let cameraSpeed: CGFloat = 0.05 + speedFactor * 0.1
+        let cameraSpeed: CGFloat = 0.08 + speedFactor * 0.05  // More stable camera
         cameraNode.position.x += (targetX - cameraNode.position.x) * cameraSpeed
         cameraNode.position.y += (targetY - cameraNode.position.y) * cameraSpeed
         
-        // Add slight camera shake at high speeds
+        // Add very subtle camera shake at high speeds
         if currentSpeed > 300 {
-            let shakeAmount: CGFloat = 2.0
+            let shakeAmount: CGFloat = 1.0  // Reduced shake
             cameraNode.position.x += CGFloat.random(in: -shakeAmount...shakeAmount)
             cameraNode.position.y += CGFloat.random(in: -shakeAmount...shakeAmount)
         }
@@ -683,21 +702,21 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 // Add collection effect
                 let sparkle = SKEmitterNode()
                 sparkle.particleColor = .yellow
-                sparkle.particleBirthRate = 100
-                sparkle.numParticlesToEmit = 20
-                sparkle.particleLifetime = 0.5
-                sparkle.particleSpeed = 100
-                sparkle.particleSpeedRange = 50
-                sparkle.particleAlpha = 1.0
-                sparkle.particleAlphaRange = 0.5
-                sparkle.particleScale = 0.1
-                sparkle.particleScaleRange = 0.05
+                sparkle.particleBirthRate = 50  // Reduced particle count
+                sparkle.numParticlesToEmit = 10  // Fewer particles
+                sparkle.particleLifetime = 0.3  // Shorter lifetime
+                sparkle.particleSpeed = 80  // Reduced speed
+                sparkle.particleSpeedRange = 30
+                sparkle.particleAlpha = 0.8  // Slightly transparent
+                sparkle.particleAlphaRange = 0.3
+                sparkle.particleScale = 0.08  // Smaller particles
+                sparkle.particleScaleRange = 0.04
                 sparkle.position = collectible.position
                 worldNode.addChild(sparkle)
                 
                 // Remove sparkle after animation
                 sparkle.run(SKAction.sequence([
-                    SKAction.wait(forDuration: 0.5),
+                    SKAction.wait(forDuration: 0.3),  // Shorter duration
                     SKAction.removeFromParent()
                 ]))
             }
