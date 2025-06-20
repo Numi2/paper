@@ -29,9 +29,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     // Controls
     private var touchLocation: CGPoint?
     private var airplaneVelocity = CGVector.zero
-    private let maxVelocity: CGFloat = 350  // Slightly reduced for better control
-    private let acceleration: CGFloat = 1000  // Increased for better responsiveness
-    private let drag: CGFloat = 0.95  // Increased drag for more realistic feel
+    private let maxVelocity: CGFloat = 400
+    private let acceleration: CGFloat = 800
+    private let drag: CGFloat = 0.98
     
     // Wind effects
     private var windForce = CGVector.zero
@@ -43,16 +43,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     private var foregroundLayer: SKNode!
     
     override func didMove(to view: SKView) {
-        // Ensure we're on the main thread
-        DispatchQueue.main.async { [weak self] in
-            self?.setupPhysics()
-            self?.setupWorld()
-            self?.setupPaperAirplane()
-            self?.setupCamera()
-            self?.setupUI()
-            self?.setupBackground()
-            self?.startGame()
-        }
+        setupPhysics()
+        setupWorld()
+        setupPaperAirplane()
+        setupCamera()
+        setupUI()
+        setupBackground()
+        startGame()
     }
     
     private func setupPhysics() {
@@ -167,42 +164,35 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     private func setupBackground() {
-        // Create infinite sky gradient in background layer
-        let skyWidth = frame.width * 2
-        let skyHeight = frame.height * 2
+        // Create sky gradient in background layer
+        let skyNode = SKSpriteNode(color: .clear, size: CGSize(width: frame.width * 3, height: frame.height * 2))
+        skyNode.position = CGPoint(x: 0, y: 0)
+        skyNode.zPosition = -100
         
-        // Create multiple sky sections for seamless scrolling
-        for i in 0...2 {
-            let skyNode = SKSpriteNode(color: .clear, size: CGSize(width: skyWidth, height: skyHeight))
-            skyNode.position = CGPoint(x: CGFloat(i) * skyWidth, y: 0)
-            skyNode.zPosition = -100
-            
-            // Create gradient effect with multiple colored rectangles
-            let colors: [UIColor] = [
-                UIColor(red: 0.4, green: 0.7, blue: 1.0, alpha: 1.0), // Light blue
-                UIColor(red: 0.6, green: 0.8, blue: 1.0, alpha: 1.0), // Sky blue
-                UIColor(red: 0.8, green: 0.9, blue: 1.0, alpha: 1.0)  // Very light blue
-            ]
-            
-            for (index, color) in colors.enumerated() {
-                let skySection = SKSpriteNode(color: color, size: CGSize(width: skyWidth, height: skyHeight / CGFloat(colors.count)))
-                skySection.position = CGPoint(x: 0, y: CGFloat(index) * skyHeight / CGFloat(colors.count) - skyHeight/2)
-                skySection.zPosition = -100 + CGFloat(index)
-                skyNode.addChild(skySection)
-            }
-            
-            backgroundLayer.addChild(skyNode)
+        // Create gradient effect with multiple colored rectangles
+        let colors: [UIColor] = [
+            UIColor(red: 0.4, green: 0.7, blue: 1.0, alpha: 1.0), // Light blue
+            UIColor(red: 0.6, green: 0.8, blue: 1.0, alpha: 1.0), // Sky blue
+            UIColor(red: 0.8, green: 0.9, blue: 1.0, alpha: 1.0)  // Very light blue
+        ]
+        
+        for (index, color) in colors.enumerated() {
+            let skySection = SKSpriteNode(color: color, size: CGSize(width: frame.width * 3, height: frame.height * 2 / CGFloat(colors.count)))
+            skySection.position = CGPoint(x: 0, y: CGFloat(index) * frame.height * 2 / CGFloat(colors.count) - frame.height)
+            skySection.zPosition = -100 + CGFloat(index)
+            skyNode.addChild(skySection)
         }
+        
+        backgroundLayer.addChild(skyNode)
         
         // Add clouds to midground layer
         addClouds()
     }
     
     private func addClouds() {
-        // Create more clouds for better coverage
-        for _ in 0..<25 {
+        for _ in 0..<15 {
             let cloud = createCloud()
-            let randomX = CGFloat.random(in: -frame.width * 2...frame.width * 4)
+            let randomX = CGFloat.random(in: -frame.width...frame.width * 2)
             let randomY = CGFloat.random(in: -frame.height/2...frame.height)
             cloud.position = CGPoint(x: randomX, y: randomY)
             cloud.zPosition = -50
@@ -225,13 +215,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     private func startGame() {
-        // Start spawning obstacles and collectibles with better timing
+        // Start spawning obstacles and collectibles
         run(SKAction.repeatForever(
             SKAction.sequence([
                 SKAction.run { [weak self] in
                     self?.spawnObstacle()
                 },
-                SKAction.wait(forDuration: 2.5)  // Slightly longer intervals
+                SKAction.wait(forDuration: 2.0)
             ])
         ))
         
@@ -240,16 +230,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 SKAction.run { [weak self] in
                     self?.spawnCollectible()
                 },
-                SKAction.wait(forDuration: 2.0)  // Better timing
+                SKAction.wait(forDuration: 1.5)
             ])
         ))
     }
     
     private func spawnObstacle() {
         let obstacle = createObstacle()
-        // Spawn obstacles at a consistent distance ahead of the airplane
-        let spawnDistance: CGFloat = frame.width + 200
-        obstacle.position = CGPoint(x: paperAirplane.position.x + spawnDistance,
+        obstacle.position = CGPoint(x: paperAirplane.position.x + frame.width + 100,
                                   y: CGFloat.random(in: -frame.height/2 + 100...frame.height/2 - 100))
         obstacle.zPosition = 5
         
@@ -262,10 +250,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         obstacleBody.isDynamic = false
         obstacle.physicsBody = obstacleBody
         
-        foregroundLayer.addChild(obstacle)
+        worldNode.addChild(obstacle)
         
-        // Move obstacle towards airplane with consistent speed
-        let moveAction = SKAction.moveBy(x: -spawnDistance - frame.width, y: 0, duration: 4.0)
+        // Move obstacle towards airplane
+        let moveAction = SKAction.moveBy(x: -frame.width - 200, y: 0, duration: 4.0)
         let removeAction = SKAction.removeFromParent()
         obstacle.run(SKAction.sequence([moveAction, removeAction]))
     }
@@ -368,9 +356,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     private func spawnCollectible() {
         let collectible = createStarCollectible()
-        // Spawn collectibles at a consistent distance ahead of the airplane
-        let spawnDistance: CGFloat = frame.width + 150
-        collectible.position = CGPoint(x: paperAirplane.position.x + spawnDistance,
+        collectible.position = CGPoint(x: paperAirplane.position.x + frame.width + 100,
                                      y: CGFloat.random(in: -frame.height/2 + 100...frame.height/2 - 100))
         collectible.zPosition = 5
         
@@ -383,10 +369,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         collectibleBody.isDynamic = false
         collectible.physicsBody = collectibleBody
         
-        foregroundLayer.addChild(collectible)
+        worldNode.addChild(collectible)
         
-        // Move collectible towards airplane with consistent speed
-        let moveAction = SKAction.moveBy(x: -spawnDistance - frame.width, y: 0, duration: 4.0)
+        // Move collectible towards airplane
+        let moveAction = SKAction.moveBy(x: -frame.width - 200, y: 0, duration: 4.0)
         let removeAction = SKAction.removeFromParent()
         collectible.run(SKAction.sequence([moveAction, removeAction]))
     }
@@ -468,8 +454,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     override func update(_ currentTime: TimeInterval) {
-        // Safety check to prevent crashes
-        guard !gameOver, paperAirplane != nil, cameraNode != nil else { return }
+        if gameOver { return }
         
         updateWind(currentTime)
         updateAirplaneMovement()
@@ -482,67 +467,47 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     private func updateWind(_ currentTime: TimeInterval) {
         windTimer += 1.0/60.0
         
-        // Change wind direction every 5 seconds (less frequent for more stable flight)
-        if windTimer > 5.0 {
+        // Change wind direction every 3 seconds
+        if windTimer > 3.0 {
             windTimer = 0
             windForce = CGVector(
-                dx: CGFloat.random(in: -30...30),  // Reduced wind strength
-                dy: CGFloat.random(in: -20...20)
+                dx: CGFloat.random(in: -50...50),
+                dy: CGFloat.random(in: -30...30)
             )
         }
         
-        // Apply wind more subtly to airplane
-        airplaneVelocity.dx += windForce.dx * 0.005  // Reduced wind effect
-        airplaneVelocity.dy += windForce.dy * 0.005
+        // Apply wind to airplane
+        airplaneVelocity.dx += windForce.dx * 0.01
+        airplaneVelocity.dy += windForce.dy * 0.01
     }
     
     private func updateParallaxLayers() {
-        // Calculate movement based on airplane velocity
-        let movementX = airplaneVelocity.dx * 0.1
+        // Parallax scrolling based on airplane movement
+        let parallaxSpeed: CGFloat = 0.1
         
-        // Parallax scrolling with better syncing
-        let backgroundSpeed: CGFloat = 0.2
-        let midgroundSpeed: CGFloat = 0.5
-        let foregroundSpeed: CGFloat = 0.8
+        // Background moves slowest
+        backgroundLayer.position.x -= airplaneVelocity.dx * parallaxSpeed * 0.3
         
-        // Move background layers
-        backgroundLayer.position.x -= movementX * backgroundSpeed
-        midgroundLayer.position.x -= movementX * midgroundSpeed
-        foregroundLayer.position.x -= movementX * foregroundSpeed
+        // Midground moves at medium speed
+        midgroundLayer.position.x -= airplaneVelocity.dx * parallaxSpeed * 0.6
         
-        // Infinite scrolling for background
-        let skyWidth = frame.width * 2
-        for child in backgroundLayer.children {
-            if child.position.x < -skyWidth {
-                child.position.x += skyWidth * 3
-            } else if child.position.x > skyWidth * 2 {
-                child.position.x -= skyWidth * 3
-            }
+        // Foreground moves fastest
+        foregroundLayer.position.x -= airplaneVelocity.dx * parallaxSpeed
+        
+        // Reset layers when they go too far
+        if backgroundLayer.position.x < -frame.width {
+            backgroundLayer.position.x += frame.width
         }
-        
-        // Infinite scrolling for midground (clouds)
-        for child in midgroundLayer.children {
-            if child.position.x < paperAirplane.position.x - frame.width * 2 {
-                child.position.x += frame.width * 4
-                child.position.y = CGFloat.random(in: -frame.height/2...frame.height)
-            }
+        if midgroundLayer.position.x < -frame.width {
+            midgroundLayer.position.x += frame.width
         }
-        
-        // Infinite scrolling for foreground
-        for child in foregroundLayer.children {
-            if child.position.x < paperAirplane.position.x - frame.width * 2 {
-                child.removeFromParent()
-            }
+        if foregroundLayer.position.x < -frame.width {
+            foregroundLayer.position.x += frame.width
         }
     }
     
     private func updateAirplaneMovement() {
-        guard let touchLocation = touchLocation else { 
-            // Apply drag when not touching
-            airplaneVelocity.dx *= drag
-            airplaneVelocity.dy *= drag
-            return 
-        }
+        guard let touchLocation = touchLocation else { return }
         
         // Convert touch location to world coordinates
         let worldTouchLocation = convert(touchLocation, to: worldNode)
@@ -556,10 +521,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         if length > 0 {
             let normalizedDirection = CGVector(dx: direction.dx / length, dy: direction.dy / length)
             
-            // Apply acceleration with better responsiveness
-            let frameTime: CGFloat = 1.0/60.0
-            airplaneVelocity.dx += normalizedDirection.dx * acceleration * frameTime
-            airplaneVelocity.dy += normalizedDirection.dy * acceleration * frameTime
+            // Apply acceleration
+            airplaneVelocity.dx += normalizedDirection.dx * acceleration * CGFloat(1.0/60.0)
+            airplaneVelocity.dy += normalizedDirection.dy * acceleration * CGFloat(1.0/60.0)
         }
         
         // Apply drag
@@ -575,46 +539,19 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         
         // Apply velocity to position
-        let frameTime: CGFloat = 1.0/60.0
-        paperAirplane.position.x += airplaneVelocity.dx * frameTime
-        paperAirplane.position.y += airplaneVelocity.dy * frameTime
+        paperAirplane.position.x += airplaneVelocity.dx * CGFloat(1.0/60.0)
+        paperAirplane.position.y += airplaneVelocity.dy * CGFloat(1.0/60.0)
         
-        // Rotate airplane based on velocity with smoother rotation
-        if currentSpeed > 5 {  // Lower threshold for rotation
-            let targetAngle = atan2(airplaneVelocity.dy, airplaneVelocity.dx)
-            let currentAngle = paperAirplane.zRotation
-            
-            // Smooth rotation interpolation with better handling of angle wrapping
-            var angleDifference = targetAngle - currentAngle
-            
-            // Handle angle wrapping for smoother rotation
-            if angleDifference > .pi {
-                angleDifference -= 2 * .pi
-            } else if angleDifference < -.pi {
-                angleDifference += 2 * .pi
-            }
-            
-            let rotationSpeed: CGFloat = 0.15  // Slightly faster rotation
-            paperAirplane.zRotation += angleDifference * rotationSpeed
-        }
+        // Rotate airplane based on velocity
+        let angle = atan2(airplaneVelocity.dy, airplaneVelocity.dx)
+        paperAirplane.zRotation = angle
         
-        // Keep airplane within bounds with softer boundary handling
-        let margin: CGFloat = 30  // Reduced margin for more freedom
-        if paperAirplane.position.x < -frame.width/2 + margin {
-            paperAirplane.position.x = -frame.width/2 + margin
-            airplaneVelocity.dx = max(airplaneVelocity.dx, 0)  // Bounce off walls
-        } else if paperAirplane.position.x > frame.width/2 - margin {
-            paperAirplane.position.x = frame.width/2 - margin
-            airplaneVelocity.dx = min(airplaneVelocity.dx, 0)
-        }
-        
-        if paperAirplane.position.y < -frame.height/2 + margin {
-            paperAirplane.position.y = -frame.height/2 + margin
-            airplaneVelocity.dy = max(airplaneVelocity.dy, 0)
-        } else if paperAirplane.position.y > frame.height/2 - margin {
-            paperAirplane.position.y = frame.height/2 - margin
-            airplaneVelocity.dy = min(airplaneVelocity.dy, 0)
-        }
+        // Keep airplane within bounds
+        let margin: CGFloat = 50
+        paperAirplane.position.x = max(paperAirplane.position.x, -frame.width/2 + margin)
+        paperAirplane.position.x = min(paperAirplane.position.x, frame.width/2 - margin)
+        paperAirplane.position.y = max(paperAirplane.position.y, -frame.height/2 + margin)
+        paperAirplane.position.y = min(paperAirplane.position.y, frame.height/2 - margin)
     }
     
     private func updateCamera() {
@@ -625,20 +562,20 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Dynamic camera offset based on speed
         let baseOffsetX: CGFloat = -100
         let baseOffsetY: CGFloat = 50
-        let speedOffsetX = -speedFactor * 30  // Reduced camera movement at high speed
-        let speedOffsetY = speedFactor * 20   // Reduced vertical movement
+        let speedOffsetX = -speedFactor * 50  // Camera moves further back at high speed
+        let speedOffsetY = speedFactor * 30   // Camera moves higher at high speed
         
         let targetX = paperAirplane.position.x + baseOffsetX + speedOffsetX
         let targetY = paperAirplane.position.y + baseOffsetY + speedOffsetY
         
         // Smooth camera follow with speed-dependent responsiveness
-        let cameraSpeed: CGFloat = 0.08 + speedFactor * 0.05  // More stable camera
+        let cameraSpeed: CGFloat = 0.05 + speedFactor * 0.1
         cameraNode.position.x += (targetX - cameraNode.position.x) * cameraSpeed
         cameraNode.position.y += (targetY - cameraNode.position.y) * cameraSpeed
         
-        // Add very subtle camera shake at high speeds
+        // Add slight camera shake at high speeds
         if currentSpeed > 300 {
-            let shakeAmount: CGFloat = 1.0  // Reduced shake
+            let shakeAmount: CGFloat = 2.0
             cameraNode.position.x += CGFloat.random(in: -shakeAmount...shakeAmount)
             cameraNode.position.y += CGFloat.random(in: -shakeAmount...shakeAmount)
         }
@@ -665,23 +602,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     private func cleanupOffscreenObjects() {
-        // Clean up obstacles in foreground layer
-        foregroundLayer.enumerateChildNodes(withName: "obstacle") { node, _ in
+        worldNode.enumerateChildNodes(withName: "obstacle") { node, _ in
             if node.position.x < self.paperAirplane.position.x - self.frame.width {
                 node.removeFromParent()
             }
         }
         
-        // Clean up collectibles in foreground layer
-        foregroundLayer.enumerateChildNodes(withName: "collectible") { node, _ in
+        worldNode.enumerateChildNodes(withName: "collectible") { node, _ in
             if node.position.x < self.paperAirplane.position.x - self.frame.width {
-                node.removeFromParent()
-            }
-        }
-        
-        // Clean up any stray particles
-        worldNode.enumerateChildNodes(withName: "") { node, _ in
-            if node is SKEmitterNode && node.position.x < self.paperAirplane.position.x - self.frame.width * 2 {
                 node.removeFromParent()
             }
         }
@@ -706,21 +634,21 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 // Add collection effect
                 let sparkle = SKEmitterNode()
                 sparkle.particleColor = .yellow
-                sparkle.particleBirthRate = 50  // Reduced particle count
-                sparkle.numParticlesToEmit = 10  // Fewer particles
-                sparkle.particleLifetime = 0.3  // Shorter lifetime
-                sparkle.particleSpeed = 80  // Reduced speed
-                sparkle.particleSpeedRange = 30
-                sparkle.particleAlpha = 0.8  // Slightly transparent
-                sparkle.particleAlphaRange = 0.3
-                sparkle.particleScale = 0.08  // Smaller particles
-                sparkle.particleScaleRange = 0.04
+                sparkle.particleBirthRate = 100
+                sparkle.numParticlesToEmit = 20
+                sparkle.particleLifetime = 0.5
+                sparkle.particleSpeed = 100
+                sparkle.particleSpeedRange = 50
+                sparkle.particleAlpha = 1.0
+                sparkle.particleAlphaRange = 0.5
+                sparkle.particleScale = 0.1
+                sparkle.particleScaleRange = 0.05
                 sparkle.position = collectible.position
                 worldNode.addChild(sparkle)
                 
                 // Remove sparkle after animation
                 sparkle.run(SKAction.sequence([
-                    SKAction.wait(forDuration: 0.3),  // Shorter duration
+                    SKAction.wait(forDuration: 0.5),
                     SKAction.removeFromParent()
                 ]))
             }
