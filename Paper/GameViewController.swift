@@ -25,6 +25,37 @@ class GameViewController: UIViewController {
             view.ignoresSiblingOrder = true
             view.showsFPS = true
             view.showsNodeCount = true
+            
+            // Fix SKView focus issues
+            view.isMultipleTouchEnabled = false
+            view.allowsTransparency = true
+        }
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        // Ensure proper view setup
+        if let skView = view as? SKView {
+            skView.paused = false
+        }
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        
+        // Pause the game when view disappears
+        if let skView = view as? SKView {
+            skView.paused = true
+        }
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        
+        // Update scene size if needed
+        if let skView = view as? SKView, let scene = skView.scene {
+            scene.size = view.bounds.size
         }
     }
 
@@ -37,6 +68,10 @@ class GameViewController: UIViewController {
     }
 
     override var prefersStatusBarHidden: Bool {
+        return true
+    }
+    
+    override var shouldAutorotate: Bool {
         return true
     }
 }

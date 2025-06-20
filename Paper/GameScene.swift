@@ -43,13 +43,16 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     private var foregroundLayer: SKNode!
     
     override func didMove(to view: SKView) {
-        setupPhysics()
-        setupWorld()
-        setupPaperAirplane()
-        setupCamera()
-        setupUI()
-        setupBackground()
-        startGame()
+        // Ensure we're on the main thread
+        DispatchQueue.main.async { [weak self] in
+            self?.setupPhysics()
+            self?.setupWorld()
+            self?.setupPaperAirplane()
+            self?.setupCamera()
+            self?.setupUI()
+            self?.setupBackground()
+            self?.startGame()
+        }
     }
     
     private func setupPhysics() {
@@ -465,7 +468,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     override func update(_ currentTime: TimeInterval) {
-        if gameOver { return }
+        // Safety check to prevent crashes
+        guard !gameOver, paperAirplane != nil, cameraNode != nil else { return }
         
         updateWind(currentTime)
         updateAirplaneMovement()
