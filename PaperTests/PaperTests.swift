@@ -10,8 +10,9 @@ import Testing
 
 struct PaperTests {
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    @Test func appCanBeImported() async throws {
+        // Simple test to verify the Paper module can be imported
+        #expect(true)
     }
 
 }
