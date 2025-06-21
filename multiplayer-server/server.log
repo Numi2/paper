@@ -1,0 +1,5 @@
+nohup: ignoring input
+Paper Airplane Multiplayer Server started on port 8080
+WebSocket endpoint: ws://localhost:8080
+New client connected
+Client disconnected
