@@ -1,0 +1,109 @@
+name: Multiplayer System Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'multiplayer-server/**'
+      - 'Paper/**/*.swift'
+      - '.github/workflows/multiplayer-tests.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'multiplayer-server/**'
+      - 'Paper/**/*.swift'
+      - '.github/workflows/multiplayer-tests.yml'
+
+jobs:
+  test-multiplayer-server:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: multiplayer-server/package-lock.json
+        
+    - name: Install server dependencies
+      run: |
+        cd multiplayer-server
+        npm install
+        
+    - name: Install test dependencies
+      run: |
+        cd multiplayer-server
+        npm install --save-dev jest ws uuid
+        
+    - name: Run server unit tests
+      run: |
+        cd multiplayer-server
+        npm test
+        
+    - name: Run integration tests
+      run: |
+        cd multiplayer-server
+        npm run test:integration
+        
+  test-websocket-connectivity:
+    runs-on: ubuntu-latest
+    needs: test-multiplayer-server
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      run: |
+        cd multiplayer-server
+        npm install
+        
+    - name: Start server in background
+      run: |
+        cd multiplayer-server
+        npm start &
+        sleep 5  # Wait for server to start
+        
+    - name: Test WebSocket connections
+      run: |
+        cd multiplayer-server
+        node tests/websocket-connectivity.test.js
+        
+    - name: Test multiplayer protocol
+      run: |
+        cd multiplayer-server
+        node tests/multiplayer-protocol.test.js
+        
+    - name: Test concurrent connections
+      run: |
+        cd multiplayer-server
+        node tests/concurrent-connections.test.js
+        
+  validate-ios-build:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+        
+    - name: Build iOS project
+      run: |
+        xcodebuild -project Paper.xcodeproj -scheme Paper -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' build
+        
+    - name: Check Swift syntax
+      run: |
+        find Paper -name "*.swift" -exec swift -frontend -parse {} \;
