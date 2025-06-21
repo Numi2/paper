@@ -14,8 +14,8 @@ class GameViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // Create the scene programmatically
-        let scene = GameScene(size: view.bounds.size)
+        // Create the menu scene programmatically
+        let scene = MenuScene(size: view.bounds.size)
         scene.scaleMode = .aspectFill
         
         // Present the scene
