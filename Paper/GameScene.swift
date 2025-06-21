@@ -23,8 +23,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     // MARK: - Physics Categories
     // Bit masks for physics collision detection
     let airplaneCategory: UInt32 = 0x1 << 0
-    let obstacleCategory: UInt32 = 0x1 << 1
-    let collectibleCategory: UInt32 = 0x1 << 2
     let groundCategory: UInt32 = 0x1 << 3
     
     // MARK: - Controls
@@ -127,7 +125,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Setup physics body for collision detection and movement
         let airplaneBody = SKPhysicsBody(rectangleOf: paperAirplane.size)
         airplaneBody.categoryBitMask = airplaneCategory // Assign category for collision filtering
-        airplaneBody.contactTestBitMask = obstacleCategory | collectibleCategory // Which categories it will test contact with
+        airplaneBody.contactTestBitMask = 0 // No contact testing needed
         airplaneBody.collisionBitMask = groundCategory // Which categories it will collide with
         airplaneBody.affectedByGravity = false // Disable gravity effect
         airplaneBody.allowsRotation = true    // Allow rotation
@@ -271,223 +269,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         return cloud
     }
     
-    // Starts spawning obstacles and collectibles
+    // Game is now just about flying the paper airplane
     private func startGame() {
-        // Loop to repeatedly spawn obstacles
-        run(SKAction.repeatForever(
-            SKAction.sequence([
-                SKAction.run { [weak self] in
-                    self?.spawnObstacle() // Call spawnObstacle method
-                },
-                SKAction.wait(forDuration: 2.0) // Wait 2 seconds before next spawn
-            ])
-        ))
-        
-        // Loop to repeatedly spawn collectibles
-        run(SKAction.repeatForever(
-            SKAction.sequence([
-                SKAction.run { [weak self] in
-                    self?.spawnCollectible() // Call spawnCollectible method
-                },
-                SKAction.wait(forDuration: 1.5) // Wait 1.5 seconds before next spawn
-            ])
-        ))
-    }
-    
-    // MARK: - Game Element Spawning
-    
-    // Spawns an obstacle at a random vertical position off-screen to the right
-    private func spawnObstacle() {
-        let obstacle = createObstacle() // Create a random obstacle type
-        obstacle.position = CGPoint(x: paperAirplane.position.x + frame.width + 100, // Position off-screen
-                                  y: CGFloat.random(in: -frame.height/2 + 100...frame.height/2 - 100)) // Random Y
-        obstacle.zPosition = 5 // Drawing order
-        
-        // Add physics body for collision
-        let obstacleBody = SKPhysicsBody(rectangleOf: obstacle.size)
-        obstacleBody.categoryBitMask = obstacleCategory
-        obstacleBody.contactTestBitMask = airplaneCategory
-        obstacleBody.collisionBitMask = 0       // No collision response
-        obstacleBody.affectedByGravity = false  // Not affected by gravity
-        obstacleBody.isDynamic = false          // Does not move by physics engine
-        obstacle.physicsBody = obstacleBody
-        
-        worldNode.addChild(obstacle) // Add to the world
-    }
-    
-    // Returns a randomly selected obstacle type (cloud, bird, or building)
-    private func createObstacle() -> SKSpriteNode {
-        let obstacleTypes = ["cloud", "bird", "building"] // Available obstacle types
-        let randomType = obstacleTypes.randomElement() ?? "cloud" // Select a random one
-        
-        switch randomType {
-        case "cloud":
-            return createCloudObstacle()
-        case "bird":
-            return createBirdObstacle()
-        case "building":
-            return createBuildingObstacle()
-        default:
-            return createCloudObstacle() // Fallback
-        }
-    }
-    
-    // Creates a cloud-shaped obstacle
-    private func createCloudObstacle() -> SKSpriteNode {
-        let cloud = SKSpriteNode(color: .darkGray, size: CGSize(width: 80, height: 60))
-        cloud.name = "obstacle" // Tag as obstacle
-        
-        // Add cloud-like shape
-        let cloudShape = SKShapeNode(ellipseOf: cloud.size)
-        cloudShape.fillColor = .darkGray
-        cloudShape.strokeColor = .gray
-        cloudShape.lineWidth = 2
-        cloud.addChild(cloudShape)
-        
-        // Add some smaller cloud parts for detail
-        for _ in 0..<3 {
-            let smallCloud = SKShapeNode(ellipseOf: CGSize(width: 30, height: 20))
-            smallCloud.fillColor = .darkGray
-            smallCloud.strokeColor = .clear
-            smallCloud.position = CGPoint(x: CGFloat.random(in: -20...20), y: CGFloat.random(in: -10...10))
-            cloud.addChild(smallCloud)
-        }
-        
-        return cloud
-    }
-    
-    // Creates a bird-shaped obstacle with flapping animation
-    private func createBirdObstacle() -> SKSpriteNode {
-        let bird = SKSpriteNode(color: .black, size: CGSize(width: 40, height: 30))
-        bird.name = "obstacle"
-        
-        // Create bird shape using a custom path
-        let birdShape = SKShapeNode()
-        let path = CGMutablePath()
-        path.move(to: CGPoint(x: -20, y: 0))
-        path.addLine(to: CGPoint(x: -10, y: 10))
-        path.addLine(to: CGPoint(x: 10, y: 5))
-        path.addLine(to: CGPoint(x: 15, y: 0))
-        path.addLine(to: CGPoint(x: 10, y: -5))
-        path.addLine(to: CGPoint(x: -10, y: -10))
-        path.closeSubpath()
-        
-        birdShape.path = path
-        birdShape.fillColor = .black
-        birdShape.strokeColor = .darkGray
-        birdShape.lineWidth = 1
-        bird.addChild(birdShape)
-        
-        // Add wing flapping animation (scaling Y)
-        let flapAction = SKAction.sequence([
-            SKAction.scaleY(to: 0.8, duration: 0.2),
-            SKAction.scaleY(to: 1.2, duration: 0.2)
-        ])
-        bird.run(SKAction.repeatForever(flapAction))
-        
-        return bird
-    }
-    
-    // Creates a building-shaped obstacle with windows
-    private func createBuildingObstacle() -> SKSpriteNode {
-        let building = SKSpriteNode(color: .brown, size: CGSize(width: 60, height: 100))
-        building.name = "obstacle"
-        
-        // Add building details (base shape)
-        let buildingShape = SKShapeNode(rectOf: building.size)
-        buildingShape.fillColor = .brown
-        buildingShape.strokeColor = .darkGray
-        buildingShape.lineWidth = 2
-        building.addChild(buildingShape)
-        
-        // Add windows to the building
-        for row in 0..<4 {
-            for col in 0..<2 {
-                let window = SKShapeNode(rectOf: CGSize(width: 8, height: 8))
-                window.fillColor = .yellow
-                window.strokeColor = .black
-                window.lineWidth = 1
-                window.position = CGPoint(x: CGFloat(col * 20 - 10), y: CGFloat(row * 20 - 30))
-                building.addChild(window)
-            }
-        }
-        
-        return building
-    }
-    
-    // Spawns a star collectible off-screen to the right
-    private func spawnCollectible() {
-        let collectible = createStarCollectible() // Create a star collectible
-        collectible.position = CGPoint(x: paperAirplane.position.x + frame.width + 100, // Position off-screen
-                                     y: CGFloat.random(in: -frame.height/2 + 100...frame.height/2 - 100)) // Random Y
-        collectible.zPosition = 5 // Drawing order
-        
-        // Add physics body for collection detection
-        let collectibleBody = SKPhysicsBody(circleOfRadius: 15)
-        collectibleBody.categoryBitMask = collectibleCategory
-        collectibleBody.contactTestBitMask = airplaneCategory
-        collectibleBody.collisionBitMask = 0
-        collectibleBody.affectedByGravity = false
-        collectibleBody.isDynamic = false
-        collectible.physicsBody = collectibleBody
-        
-        worldNode.addChild(collectible) // Add to the world
-    }
-    
-    // Creates a star-shaped collectible with glow and animation
-    private func createStarCollectible() -> SKSpriteNode {
-        let star = SKSpriteNode(color: .clear, size: CGSize(width: 30, height: 30))
-        star.name = "collectible" // Tag as collectible
-        
-        // Create star shape using a custom path
-        let starShape = SKShapeNode()
-        let path = CGMutablePath()
-        
-        let outerRadius: CGFloat = 15
-        let innerRadius: CGFloat = 7
-        let points = 5
-        
-        // Generate star points
-        for i in 0..<points * 2 {
-            let angle = CGFloat(i) * .pi / CGFloat(points)
-            let radius = i % 2 == 0 ? outerRadius : innerRadius
-            let x = cos(angle) * radius
-            let y = sin(angle) * radius
-            
-            if i == 0 {
-                path.move(to: CGPoint(x: x, y: y))
-            } else {
-                path.addLine(to: CGPoint(x: x, y: y))
-            }
-        }
-        path.closeSubpath()
-        
-        starShape.path = path
-        starShape.fillColor = .yellow
-        starShape.strokeColor = .orange
-        starShape.lineWidth = 2
-        star.addChild(starShape)
-        
-        // Add glow effect
-        let glow = SKShapeNode()
-        glow.path = path
-        glow.fillColor = .clear
-        glow.strokeColor = .yellow
-        glow.lineWidth = 4
-        glow.alpha = 0.5
-        star.addChild(glow)
-        
-        // Add rotation and scaling animation to the star
-        let rotateAction = SKAction.rotate(byAngle: .pi * 2, duration: 2.0)
-        let scaleAction = SKAction.sequence([
-            SKAction.scale(to: 1.2, duration: 0.5),
-            SKAction.scale(to: 1.0, duration: 0.5)
-        ])
-        
-        star.run(SKAction.repeatForever(rotateAction))
-        star.run(SKAction.repeatForever(scaleAction))
-        
-        return star
+        // No more obstacles or collectibles to spawn
+        // The game is now just about flying the paper airplane through the sky
     }
     
     // MARK: - Touch Handling
@@ -529,7 +314,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         updateCamera()
         updateParallaxLayers() // Note: This is now handled in moveWorld()
         updateScore()
-        cleanupOffscreenObjects()
     }
     
     // Updates the wind force applied to the airplane
@@ -550,16 +334,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         airplaneVelocity.dy += windForce.dy * 0.01
     }
     
-    // Moves the game world elements (obstacles, collectibles, parallax layers)
+    // Moves the game world elements (parallax layers)
     private func moveWorld() {
         let scrollSpeed = airplaneVelocity.dx * CGFloat(1.0/60.0)
-        // Move obstacles and collectibles left based on scroll speed
-        worldNode.enumerateChildNodes(withName: "obstacle") { node, _ in
-            node.position.x -= scrollSpeed
-        }
-        worldNode.enumerateChildNodes(withName: "collectible") { node, _ in
-            node.position.x -= scrollSpeed
-        }
+        
         // Infinite tiling for all layers in both X and Y
         let tileWidth = frame.width
         let tileHeight = frame.height
@@ -667,64 +445,12 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
     
-    // Removes off-screen obstacles and collectibles to optimize performance
-    private func cleanupOffscreenObjects() {
-        let cleanupThreshold = paperAirplane.position.x - self.frame.width // Define a threshold for removal
-        
-        // Remove obstacles that are far enough off-screen to the left
-        worldNode.enumerateChildNodes(withName: "obstacle") { node, _ in
-            if node.position.x < cleanupThreshold {
-                node.removeFromParent()
-            }
-        }
-        
-        // Remove collectibles that are far enough off-screen to the left
-        worldNode.enumerateChildNodes(withName: "collectible") { node, _ in
-            if node.position.x < cleanupThreshold {
-                node.removeFromParent()
-            }
-        }
-    }
-    
     // MARK: - SKPhysicsContactDelegate
     
     // Called when two physics bodies come into contact
     func didBegin(_ contact: SKPhysicsContact) {
-        let collision = contact.bodyA.categoryBitMask | contact.bodyB.categoryBitMask
-        
-        if collision == airplaneCategory | obstacleCategory {
-            // Collision with obstacle: Game Over
-            gameOver = true
-            handleGameOver()
-        } else if collision == airplaneCategory | collectibleCategory {
-            // Collision with collectible: Increase score and add effect
-            if let collectible = contact.bodyA.categoryBitMask == collectibleCategory ? contact.bodyA.node : contact.bodyB.node {
-                collectible.removeFromParent() // Remove collectible
-                score += 50 // Increase score
-                scoreLabel.text = "Score: \(score)" // Update score display
-                
-                // Add collection sparkle effect
-                let sparkle = SKEmitterNode()
-                sparkle.particleColor = .yellow
-                sparkle.particleBirthRate = 100
-                sparkle.numParticlesToEmit = 20
-                sparkle.particleLifetime = 0.5
-                sparkle.particleSpeed = 100
-                sparkle.particleSpeedRange = 50
-                sparkle.particleAlpha = 1.0
-                sparkle.particleAlphaRange = 0.5
-                sparkle.particleScale = 0.1
-                sparkle.particleScaleRange = 0.05
-                sparkle.position = collectible.position
-                worldNode.addChild(sparkle)
-                
-                // Remove sparkle after its animation
-                sparkle.run(SKAction.sequence([
-                    SKAction.wait(forDuration: 0.5),
-                    SKAction.removeFromParent()
-                ]))
-            }
-        }
+        // No more collision handling needed since obstacles and collectibles are removed
+        // The game is now just about flying the paper airplane
     }
     
     // MARK: - Game Over
